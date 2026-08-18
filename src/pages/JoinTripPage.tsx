@@ -32,7 +32,7 @@ export function JoinTripPage() {
   return (
     <form className="mx-auto flex max-w-md flex-col gap-4" onSubmit={(event) => void onSubmit(event)}>
       <h1 className="text-2xl font-semibold">Join a trip</h1>
-      <p className="text-sm text-stone-600">Enter the code someone sent you. You need a network connection this once.</p>
+      <p className="text-sm text-sand-600">Enter the code someone sent you. You need a network connection this once.</p>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="code">Trip code</Label>
         <Input

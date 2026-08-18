@@ -48,17 +48,17 @@ export function SignInPage() {
   return (
     <div className="mx-auto flex min-h-svh max-w-md flex-col justify-center px-4 py-10">
       <BrandMark as="heading" className="text-4xl leading-tight" />
-      <p className="mt-3 text-xl font-medium tracking-tight text-stone-700">{product.tagline}</p>
-      <p className="mt-2 text-stone-600">Sign in to create or join a family trip.</p>
+      <p className="mt-3 text-xl font-medium tracking-tight text-sand-700">{product.tagline}</p>
+      <p className="mt-2 text-sand-600">Sign in to create or join a family trip.</p>
 
       <Button className="mt-8 w-full" size="lg" onClick={() => void onGoogle()} disabled={busy}>
         Continue with Google
       </Button>
 
-      <div className="my-6 flex items-center gap-3 text-sm text-stone-400">
-        <div className="h-px flex-1 bg-stone-200" />
+      <div className="my-6 flex items-center gap-3 text-sm text-sand-400">
+        <div className="h-px flex-1 bg-sand-200" />
         or email
-        <div className="h-px flex-1 bg-stone-200" />
+        <div className="h-px flex-1 bg-sand-200" />
       </div>
 
       <form className="flex flex-col gap-4" onSubmit={(event) => void onSubmit(event)}>
@@ -92,7 +92,7 @@ export function SignInPage() {
 
       <button
         type="button"
-        className="mt-4 cursor-pointer text-sm text-emerald-800"
+        className="mt-4 cursor-pointer text-sm text-forest"
         onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
       >
         {mode === 'signin' ? 'Need an account? Create one' : 'Already have an account? Sign in'}

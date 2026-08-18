@@ -10,7 +10,7 @@ type BrandMarkProps = {
 function Logo({ className }: { className?: string }) {
   return (
     <img
-      src="/favicon.svg"
+      src="/logo.png"
       alt=""
       width={40}
       height={40}
@@ -20,7 +20,7 @@ function Logo({ className }: { className?: string }) {
 }
 
 export function BrandMark({ className, as = 'text' }: BrandMarkProps) {
-  const classes = cn('font-brand inline-flex items-center gap-2 text-emerald-900 tracking-wide', className)
+  const classes = cn('font-brand inline-flex items-center gap-2 text-forest tracking-wide', className)
   const inner = (
     <>
       <Logo />

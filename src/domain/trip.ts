@@ -3,6 +3,7 @@ export type Trip = {
   name: string
   startDate: string
   endDate: string
+  endsAt?: number
   joinCode: string
   hostUid: string
   memberUids: string[]
@@ -21,4 +22,14 @@ export type UserProfile = {
   uid: string
   displayName: string
   email: string | null
+}
+
+export function isTripLive(trip: Pick<Trip, 'endDate' | 'endsAt'>, now = Date.now()): boolean {
+  if (typeof trip.endsAt === 'number') {
+    return trip.endsAt >= now
+  }
+  if (!trip.endDate) return true
+  const end = Date.parse(`${trip.endDate}T23:59:59.999`)
+  if (Number.isNaN(end)) return true
+  return end >= now
 }

@@ -12,7 +12,7 @@ import { TripPage } from '@/pages/TripPage'
 function Gate({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth()
   if (loading) {
-    return <p className="p-8 text-center text-stone-500">Loading…</p>
+    return <p className="p-8 text-center text-sand-500">Loading…</p>
   }
   if (!user) {
     return <SignInPage />

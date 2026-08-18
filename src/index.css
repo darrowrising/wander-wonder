@@ -2,19 +2,37 @@
 
 @theme {
   --font-brand: 'Calistoga', ui-serif, Georgia, serif;
+
+  --color-paper: #f7f3ee;
+  --color-ink: #1c1917;
+  --color-forest: #1d4e3b;
+  --color-forest-hover: #163d2e;
+  --color-gold: #b7791f;
+  --color-rarity-common: #3d8a4f;
+  --color-rarity-uncommon: #e0a21a;
+  --color-rarity-rare: #c0392b;
+
+  --color-sand-50: #faf7f2;
+  --color-sand-100: #efe8de;
+  --color-sand-200: #e0d4c6;
+  --color-sand-300: #cbb9a6;
+  --color-sand-400: #a89078;
+  --color-sand-500: #8a7360;
+  --color-sand-600: #6d5a4a;
+  --color-sand-700: #56483c;
 }
 
 :root {
   color-scheme: light;
   font-family: ui-sans-serif, system-ui, sans-serif;
-  background: #f7f3ee;
-  color: #1c1917;
+  background: var(--color-paper);
+  color: var(--color-ink);
 }
 
 body {
   margin: 0;
   min-height: 100svh;
-  background: #f7f3ee;
+  background: var(--color-paper);
 }
 
 button {

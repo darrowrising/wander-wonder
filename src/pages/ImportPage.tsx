@@ -31,14 +31,14 @@ export function ImportPage() {
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4">
       <h1 className="text-2xl font-semibold">Import old games</h1>
-      <p className="text-sm text-stone-600">
+      <p className="text-sm text-sand-600">
         Copies license-plate games from the old app into past trips. Every imported plate is attributed to you.
         Safe to run more than once.
       </p>
       <Button onClick={() => void onImport()} disabled={busy}>
         Import past games
       </Button>
-      {message && <p className="text-sm text-emerald-800">{message}</p>}
+      {message && <p className="text-sm text-forest">{message}</p>}
       {error && <p className="text-sm text-red-700">{error}</p>}
     </div>
   )

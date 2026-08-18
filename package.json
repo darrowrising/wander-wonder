@@ -17,6 +17,7 @@
     "deploy:rules:prod": "firebase deploy --only firestore:rules --project prod"
   },
   "dependencies": {
+    "@fontsource/calistoga": "^5.3.0",
     "@radix-ui/react-label": "^2.1.15",
     "@radix-ui/react-slot": "^1.3.3",
     "@tailwindcss/vite": "^4.3.3",
@@ -36,11 +37,12 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
+    "firebase-tools": "^14.0.0",
     "oxlint": "^1.75.0",
     "prettier": "^3.9.6",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
-    "vitest": "^4.1.10",
-    "firebase-tools": "^14.0.0"
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.10"
   }
 }
