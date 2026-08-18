@@ -20,7 +20,12 @@ export function authErrorMessage(error: unknown): string {
       return 'That email already has an account. Sign in instead.'
     case 'auth/weak-password':
       return 'Password should be at least 6 characters.'
-    default:
-      return error instanceof Error ? error.message : 'Could not sign in.'
+    default: {
+      const message = error instanceof Error ? error.message : 'Could not sign in.'
+      if (message.includes('Database is closing/hidden')) {
+        return 'Google sign-in hit a browser storage glitch. Refresh and try again.'
+      }
+      return message
+    }
   }
 }
