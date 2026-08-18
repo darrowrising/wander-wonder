@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "license-plate-game-test",
+    "test": "license-plate-game-test",
+    "prod": "license-game-prod"
+  }
+}
