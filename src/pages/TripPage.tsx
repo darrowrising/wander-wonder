@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { AnimatePresence, animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion } from 'framer-motion'
@@ -7,6 +7,7 @@ import { isPermissionDenied } from '@/auth/errors'
 import { useAuth } from '@/auth/AuthProvider'
 import { countryLabels, plates } from '@/config/plates'
 import { Button } from '@/components/ui/button'
+import { UsaPlateMap } from '@/components/UsaPlateMap'
 import { ensureTripMember, joinTrip, listenEvents, listenMembers, listenTrip, togglePlate } from '@/data/trips'
 import {
   extraCreditPoints,
@@ -250,31 +251,20 @@ function PlateScore({
   mexicoTotal: number
 }) {
   const reduceMotion = useReducedMotion()
-  const sentinelRef = useRef<HTMLDivElement>(null)
-  const stickyRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
   const [stuck, setStuck] = useState(false)
-  const [expandedHeight, setExpandedHeight] = useState(0)
   const pct = usaTotal === 0 ? 0 : Math.min(100, (usaFound / usaTotal) * 100)
   const complete = usaFound >= usaTotal && usaTotal > 0
 
-  useLayoutEffect(() => {
-    if (stuck) return
-    const node = stickyRef.current
-    if (!node) return
-    setExpandedHeight(node.offsetHeight)
-  }, [stuck, usaFound, usaTotal, extra])
-
   useEffect(() => {
-    const sentinel = sentinelRef.current
-    const sticky = stickyRef.current
-    if (!sentinel || !sticky) return
+    const node = cardRef.current
+    if (!node) return
 
     let frame = 0
     function update() {
       frame = 0
-      const stickyTop = sticky.getBoundingClientRect().top
-      const sentinelTop = sentinel.getBoundingClientRect().top
-      setStuck((prev) => (prev ? sentinelTop < 40 : stickyTop <= 0))
+      const bottom = node.getBoundingClientRect().bottom
+      setStuck((prev) => (prev ? bottom < 24 : bottom <= 0))
     }
     function onScroll() {
       if (frame) return
@@ -291,42 +281,30 @@ function PlateScore({
     }
   }, [])
 
-  const spacer = stuck ? Math.max(0, expandedHeight - 52) : 0
-
   return (
     <>
-      <div ref={sentinelRef} className="mt-3 h-0" aria-hidden />
-      <div
-        ref={stickyRef}
-        className={cn(
-          'sticky top-0 z-20',
-          stuck
-            ? 'ml-[calc(50%-50vw)] w-screen max-w-[100vw] border-b border-sand-200 bg-paper/95 shadow-[0_8px_16px_-12px_rgba(28,25,23,0.35)] backdrop-blur'
-            : 'w-full rounded-xl border border-sand-200 bg-white p-4 shadow-sm',
-        )}
+      <motion.div
+        ref={cardRef}
+        initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className="mt-3 rounded-xl border border-sand-200 bg-white p-4 shadow-sm"
       >
-        <div className={cn(stuck && 'mx-auto max-w-3xl px-4 py-2.5')}>
-        <div className={cn('flex gap-3', stuck ? 'w-full items-center' : 'flex-col')}>
-          <div className={cn('flex justify-between gap-3', stuck ? 'shrink-0 items-baseline' : 'items-end')}>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-end justify-between gap-3">
             <div>
-              <p className={cn('font-brand tracking-wide text-forest', stuck ? 'text-xl' : 'text-3xl')}>
+              <p className="font-brand text-3xl tracking-wide text-forest">
                 <AnimatedCount value={usaFound} />
-                <span className={cn('ml-1 font-normal text-sand-400', stuck ? 'text-sm' : 'text-lg')}>
-                  of {usaTotal}
-                </span>
+                <span className="ml-1 text-lg font-normal text-sand-400">of {usaTotal}</span>
               </p>
-              {!stuck ? (
-                <p className="text-sm text-sand-500">{complete ? 'Every US plate spotted' : 'US plates spotted'}</p>
-              ) : null}
+              <p className="text-sm text-sand-500">{complete ? 'Every US plate spotted' : 'US plates spotted'}</p>
             </div>
-            {!stuck ? (
-              <p className="text-right text-xs text-sand-400">
-                {complete ? 'Set complete' : `${usaTotal - usaFound} to go`}
-              </p>
-            ) : null}
+            <p className="text-right text-xs text-sand-400">
+              {complete ? 'Set complete' : `${usaTotal - usaFound} to go`}
+            </p>
           </div>
           <div
-            className={cn('overflow-hidden rounded-full bg-sand-100', stuck ? 'h-1.5 min-w-0 flex-1' : 'h-2')}
+            className="h-2 overflow-hidden rounded-full bg-sand-100"
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={usaTotal}
@@ -340,71 +318,81 @@ function PlateScore({
               transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: reduceMotion ? 0 : 0.12 }}
             />
           </div>
-          {stuck && extra.points > 0 ? (
-            <span className="shrink-0 text-xs font-semibold text-gold">+{extra.points}</span>
-          ) : null}
         </div>
-        <AnimatePresence initial={false}>
-          {!stuck ? (
-            <motion.div
-              key="score-chips"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="overflow-hidden"
+        <motion.div
+          className="mt-3 flex flex-wrap items-center gap-2"
+          initial={reduceMotion ? false : 'hidden'}
+          animate="show"
+          variants={{
+            hidden: {},
+            show: { transition: { staggerChildren: 0.07, delayChildren: 0.2 } },
+          }}
+        >
+          <ExtraCreditChip flag="🇨🇦" label="Canada" found={extra.canada} total={canadaTotal} />
+          <ExtraCreditChip flag="🇲🇽" label="Mexico" found={extra.mexico} total={mexicoTotal} />
+          {extra.points > 0 ? (
+            <motion.span
+              variants={chipReveal}
+              className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2.5 py-1 text-xs font-semibold text-gold"
             >
-              <motion.div
-                className="mt-3 flex flex-wrap items-center gap-2"
-                initial={reduceMotion ? false : 'hidden'}
-                animate="show"
-                variants={{
-                  hidden: {},
-                  show: { transition: { staggerChildren: 0.07, delayChildren: 0.2 } },
-                }}
-              >
-                <ExtraCreditChip flag="🇨🇦" label="Canada" found={extra.canada} total={canadaTotal} />
-                <ExtraCreditChip flag="🇲🇽" label="Mexico" found={extra.mexico} total={mexicoTotal} />
-                {extra.points > 0 ? (
-                  <motion.span
-                    variants={chipReveal}
-                    className="inline-flex items-center gap-1 rounded-full bg-gold/15 px-2.5 py-1 text-xs font-semibold text-gold"
-                  >
-                    <Sparkles className="size-3" />
-                    +{extra.points} bonus
-                  </motion.span>
-                ) : (
-                  <motion.span variants={chipReveal} className="text-[11px] text-sand-400">
-                    rare plates score more
-                  </motion.span>
-                )}
-                {extra.rareFinds > 0 ? (
-                  <motion.span variants={chipReveal} className="text-[11px] font-medium text-gold">
-                    {extra.rareFinds} rare
-                  </motion.span>
-                ) : null}
-                {extra.northAmerica ? (
-                  <motion.span
-                    variants={chipReveal}
-                    className="rounded-full bg-forest px-2.5 py-1 text-xs font-semibold text-white"
-                  >
-                    North America
-                  </motion.span>
-                ) : extra.bothBorders ? (
-                  <motion.span
-                    variants={chipReveal}
-                    className="rounded-full bg-gold px-2.5 py-1 text-xs font-semibold text-white"
-                  >
-                    Both borders
-                  </motion.span>
-                ) : null}
-              </motion.div>
-            </motion.div>
+              <Sparkles className="size-3" />
+              +{extra.points} bonus
+            </motion.span>
+          ) : (
+            <motion.span variants={chipReveal} className="text-[11px] text-sand-400">
+              rare plates score more
+            </motion.span>
+          )}
+          {extra.rareFinds > 0 ? (
+            <motion.span variants={chipReveal} className="text-[11px] font-medium text-gold">
+              {extra.rareFinds} rare
+            </motion.span>
           ) : null}
-        </AnimatePresence>
-        </div>
-      </div>
-      {spacer > 0 ? <div style={{ height: spacer }} aria-hidden /> : null}
+          {extra.northAmerica ? (
+            <motion.span
+              variants={chipReveal}
+              className="rounded-full bg-forest px-2.5 py-1 text-xs font-semibold text-white"
+            >
+              North America
+            </motion.span>
+          ) : extra.bothBorders ? (
+            <motion.span
+              variants={chipReveal}
+              className="rounded-full bg-gold px-2.5 py-1 text-xs font-semibold text-white"
+            >
+              Both borders
+            </motion.span>
+          ) : null}
+        </motion.div>
+      </motion.div>
+
+      <AnimatePresence>
+        {stuck ? (
+          <motion.div
+            key="score-compact"
+            initial={reduceMotion ? false : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? undefined : { opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed inset-x-0 top-0 z-30 border-b border-sand-200 bg-paper/95 pt-[env(safe-area-inset-top)] shadow-[0_8px_16px_-12px_rgba(28,25,23,0.35)] backdrop-blur"
+          >
+            <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-2.5">
+              <p className="shrink-0 font-brand text-xl tracking-wide text-forest">
+                {usaFound}
+                <span className="ml-1 text-sm font-normal text-sand-400">of {usaTotal}</span>
+              </p>
+              <div
+                className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-sand-100"
+                role="progressbar"
+                aria-hidden
+              >
+                <div className="h-full rounded-full bg-forest" style={{ width: `${pct}%` }} />
+              </div>
+              {extra.points > 0 ? <span className="text-xs font-semibold text-gold">+{extra.points}</span> : null}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </>
   )
 }
@@ -875,7 +863,10 @@ export function TripPage() {
       <section className="mt-8">
         <h2 className="mb-1 text-lg font-semibold">{countryLabels.usa}</h2>
         <RarityLegend />
-        <PlateGrid country="usa" found={found} live={live} onToggle={(country, state) => void onToggle(country, state)} />
+        <UsaPlateMap found={found} />
+        <div className="mt-4">
+          <PlateGrid country="usa" found={found} live={live} onToggle={(country, state) => void onToggle(country, state)} />
+        </div>
       </section>
 
       <section className="mt-8 flex flex-col gap-6 rounded-xl border border-sand-200 bg-white p-4 shadow-sm">
