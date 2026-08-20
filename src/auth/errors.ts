@@ -1,5 +1,9 @@
 import { FirebaseError } from 'firebase/app'
 
+export function isPermissionDenied(error: unknown): boolean {
+  return error instanceof FirebaseError && error.code === 'permission-denied'
+}
+
 export function authErrorMessage(error: unknown): string {
   const code = error instanceof FirebaseError ? error.code : ''
 

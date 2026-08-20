@@ -5,7 +5,7 @@ import {
   doc,
   getDoc,
   getDocFromCache,
-  getDocs,
+  getDocFromServer,
   onSnapshot,
   query,
   setDoc,
@@ -22,6 +22,10 @@ import { db } from '@/lib/firebase'
 
 function tripRef(tripId: string) {
   return doc(db, 'trips', tripId)
+}
+
+function memberRef(tripId: string, uid: string) {
+  return doc(db, 'trips', tripId, 'members', uid)
 }
 
 function endsAtFromDate(endDate: string): Timestamp {
@@ -100,7 +104,7 @@ export async function createTrip(input: {
     })
 
     await setDoc(codeRef, { tripId: tripDoc.id })
-    await setDoc(doc(db, 'trips', tripDoc.id, 'members', input.host.uid), {
+    await setDoc(memberRef(tripDoc.id, input.host.uid), {
       displayName: input.host.displayName,
       joinedAt: createdAt,
       role: 'host',
@@ -122,14 +126,20 @@ export async function createTrip(input: {
   throw new Error('Could not allocate a join code. Try again.')
 }
 
-export async function joinTripByCode(code: string, profile: UserProfile): Promise<string> {
-  const snap = await getDoc(doc(db, 'joinCodes', code))
-  if (!snap.exists()) {
-    throw new Error('No trip found for that code.')
-  }
+export async function ensureTripMember(tripId: string, profile: UserProfile): Promise<void> {
+  await setDoc(
+    memberRef(tripId, profile.uid),
+    {
+      displayName: profile.displayName,
+      joinedAt: new Date().toISOString(),
+      role: 'member',
+    },
+    { merge: true },
+  )
+}
 
-  const tripId = snap.data().tripId as string
-  const tripSnap = await getDoc(tripRef(tripId))
+export async function joinTrip(tripId: string, profile: UserProfile): Promise<void> {
+  const tripSnap = await getDocFromServer(tripRef(tripId))
   if (!tripSnap.exists()) {
     throw new Error('That trip no longer exists.')
   }
@@ -139,20 +149,13 @@ export async function joinTripByCode(code: string, profile: UserProfile): Promis
     throw new Error('That trip has ended and can no longer be joined.')
   }
 
-  if (trip.memberUids.includes(profile.uid)) {
-    return tripId
+  if (!trip.memberUids.includes(profile.uid)) {
+    await updateDoc(tripRef(tripId), {
+      memberUids: arrayUnion(profile.uid),
+    })
   }
 
-  await updateDoc(tripRef(tripId), {
-    memberUids: arrayUnion(profile.uid),
-  })
-  await setDoc(doc(db, 'trips', tripId, 'members', profile.uid), {
-    displayName: profile.displayName,
-    joinedAt: new Date().toISOString(),
-    role: 'member',
-  })
-
-  return tripId
+  await ensureTripMember(tripId, profile)
 }
 
 export async function backfillTripEndsAt(trip: Trip, hostUid: string): Promise<void> {
@@ -262,7 +265,7 @@ export function warmTripCache(tripId: string): Unsubscribe {
 
 export async function writePlateEvent(
   tripId: string,
-  event: Omit<PlateEvent, 'id'> & { imported?: boolean; sort?: number },
+  event: Omit<PlateEvent, 'id'>,
 ): Promise<void> {
   await addDoc(collection(db, 'trips', tripId, 'events'), event)
 }
@@ -301,77 +304,4 @@ export async function togglePlate(input: {
     state: input.state,
     at: new Date().toISOString(),
   })
-}
-
-type LegacyGame = {
-  uid?: string
-  name?: string
-  startDate?: string
-  endDate?: string
-  plates?: Array<{ country?: string; state?: string; dateFound?: string }>
-}
-
-export async function importLegacyGames(profile: UserProfile): Promise<number> {
-  const imported = await getDocs(collection(db, 'users', profile.uid, 'legacyImports'))
-  const already = new Set(imported.docs.map((item) => item.id))
-  const games = await getDocs(collection(db, 'games'))
-  let count = 0
-
-  for (const gameDoc of games.docs) {
-    const game = gameDoc.data() as LegacyGame
-    const legacyId = game.uid ?? gameDoc.id
-    if (already.has(legacyId)) continue
-
-    const createdAt = new Date().toISOString()
-    let joinCode = createJoinCode()
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      const codeSnap = await getDoc(doc(db, 'joinCodes', joinCode))
-      if (!codeSnap.exists()) break
-      joinCode = createJoinCode()
-    }
-
-    const endDate = game.endDate ?? ''
-    const tripDoc = await addDoc(collection(db, 'trips'), {
-      name: game.name ?? 'Imported trip',
-      startDate: game.startDate ?? '',
-      endDate,
-      endsAt: endsAtFromDate(endDate),
-      joinCode,
-      hostUid: profile.uid,
-      memberUids: [profile.uid],
-      legacyGameId: legacyId,
-      createdAt,
-    })
-
-    await setDoc(doc(db, 'joinCodes', joinCode), { tripId: tripDoc.id })
-    await setDoc(doc(db, 'trips', tripDoc.id, 'members', profile.uid), {
-      displayName: profile.displayName,
-      joinedAt: createdAt,
-      role: 'host',
-    })
-
-    const plates = game.plates ?? []
-    await Promise.all(
-      plates.map((plate, index) =>
-        addDoc(collection(db, 'trips', tripDoc.id, 'events'), {
-          type: 'plate_found',
-          playerId: profile.uid,
-          playerName: profile.displayName,
-          country: plate.country === 'canada' || plate.country === 'mexico' ? plate.country : 'usa',
-          state: plate.state ?? 'Unknown',
-          at: plate.dateFound ?? createdAt,
-          imported: true,
-          sort: index,
-        }),
-      ),
-    )
-
-    await setDoc(doc(db, 'users', profile.uid, 'legacyImports', legacyId), {
-      tripId: tripDoc.id,
-      importedAt: createdAt,
-    })
-    count += 1
-  }
-
-  return count
 }

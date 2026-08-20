@@ -7,6 +7,7 @@
   --color-ink: #1c1917;
   --color-forest: #1d4e3b;
   --color-forest-hover: #163d2e;
+  --color-forest-deep: #10291f;
   --color-gold: #b7791f;
   --color-rarity-common: #3d8a4f;
   --color-rarity-uncommon: #e0a21a;
@@ -20,6 +21,87 @@
   --color-sand-500: #8a7360;
   --color-sand-600: #6d5a4a;
   --color-sand-700: #56483c;
+
+}
+
+.startup-screen {
+  display: flex;
+  min-height: 100svh;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--color-paper);
+  padding: 1rem;
+}
+
+.startup-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.startup-logo {
+  position: relative;
+  z-index: 1;
+  animation: startup-mark 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.startup-wordmark {
+  margin: 1.15rem 0 0;
+  animation: startup-rise 0.65s ease 0.45s both;
+}
+
+.startup-tagline {
+  margin: 0.45rem 0 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  color: var(--color-sand-500);
+  animation: startup-rise 0.7s ease 0.7s both;
+}
+
+.startup-status {
+  margin: 1.25rem 0 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-sand-400);
+  animation: startup-rise 0.7s ease 0.95s both;
+}
+
+@keyframes startup-mark {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes startup-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .startup-logo,
+  .startup-wordmark,
+  .startup-tagline,
+  .startup-status {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
 }
 
 :root {

@@ -1,30 +1,26 @@
 import { Link } from 'react-router-dom'
+import { Logo } from '@/components/WanderLogo'
 import { product } from '@/config/product'
 import { cn } from '@/lib/utils'
+
+export { Logo } from '@/components/WanderLogo'
 
 type BrandMarkProps = {
   className?: string
   as?: 'link' | 'text' | 'heading'
+  showLogo?: boolean
 }
 
-function Logo({ className }: { className?: string }) {
-  return (
-    <img
-      src="/logo.png"
-      alt=""
-      width={40}
-      height={40}
-      className={cn('size-9 shrink-0 rounded-lg', className)}
-    />
-  )
+function Wordmark() {
+  return <span className="text-forest">{product.name}</span>
 }
 
-export function BrandMark({ className, as = 'text' }: BrandMarkProps) {
-  const classes = cn('font-brand inline-flex items-center gap-2 text-forest tracking-wide', className)
+export function BrandMark({ className, as = 'text', showLogo = true }: BrandMarkProps) {
+  const classes = cn('font-brand inline-flex items-center gap-2 tracking-wide', className)
   const inner = (
     <>
-      <Logo />
-      <span>{product.name}</span>
+      {showLogo ? <Logo /> : null}
+      <Wordmark />
     </>
   )
 

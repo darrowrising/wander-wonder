@@ -41,7 +41,7 @@ export function projectFoundPlates(events: readonly PlateEvent[]): Map<string, F
         playerName: event.playerName,
         at: event.at,
       })
-    } else {
+    } else if (event.type === 'plate_unfound') {
       found.delete(key)
     }
   }

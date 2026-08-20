@@ -22,7 +22,7 @@ function TripList({ trips, ended }: { trips: Trip[]; ended?: boolean }) {
               {trip.startDate && trip.endDate
                 ? `${dayjs(trip.startDate).format('MMM D, YYYY')} – ${dayjs(trip.endDate).format('MMM D, YYYY')}`
                 : 'Dates not set'}
-              {ended ? ' · view only' : ` · code ${trip.joinCode}`}
+              {ended ? ' · view only' : ''}
             </CardDescription>
           </Card>
         </Link>
@@ -99,12 +99,6 @@ export function HomePage() {
       <div className="flex flex-wrap gap-3">
         <Button asChild>
           <Link to="/trips/new">New trip</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link to="/join">Join with a code</Link>
-        </Button>
-        <Button asChild variant="ghost">
-          <Link to="/import">Import old games</Link>
         </Button>
       </div>
 
