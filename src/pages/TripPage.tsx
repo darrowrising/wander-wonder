@@ -1,25 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { AnimatePresence, animate, motion, useMotionValue, useMotionValueEvent, useReducedMotion } from 'framer-motion'
-import { ArrowLeft, Check, ChevronDown, Share, Sparkles, Star } from 'lucide-react'
+import { ArrowLeft, Binoculars, Car, Check, ChevronDown, Share, Sparkles, Star } from 'lucide-react'
 import { isPermissionDenied } from '@/auth/errors'
 import { useAuth } from '@/auth/AuthProvider'
 import { countryLabels, plates } from '@/config/plates'
+import { wildlifeAnimals, wildlifeById, wildlifeSigns } from '@/config/wildlife'
 import { Button } from '@/components/ui/button'
 import { UsaPlateMap } from '@/components/UsaPlateMap'
-import { ensureTripMember, joinTrip, listenEvents, listenMembers, listenTrip, togglePlate } from '@/data/trips'
-import {
-  extraCreditPoints,
-  extraCreditRarity,
-  plateFoundPercent,
-  plateRarity,
-  summarizeExtraCredit,
-  type ExtraCreditSummary,
-  type ExtraRarity,
-} from '@/domain/extra-credit'
-import { countFoundByCountry, plateKey, projectFoundPlates, type Country, type FoundPlate, type PlateEvent } from '@/domain/plates'
+import { ensureTripMember, joinTrip, listenEvents, listenMembers, listenTrip, togglePlate, toggleWildlife } from '@/data/trips'
+import { listenGameStats } from '@/data/stats'
+import { extraCreditPoints, extraCreditRarity, plateFoundPercent, plateRarity, pointsForRarity, summarizeExtraCredit, type ExtraCreditSummary, type ExtraRarity } from '@/domain/extra-credit'
+import { itemFoundStat, type FoundStat, type GameStats } from '@/domain/game-stats'
+import { countFoundByCountry, plateKey, projectFoundPlates, type Country, type FoundPlate } from '@/domain/plates'
+import { isPlateEvent, isWildlifeEvent, type TripEvent } from '@/domain/trip-event'
+import { parseTripGame, tripGameHref, type TripGame } from '@/domain/trip-game'
 import { isTripLive, type Trip, type TripMember } from '@/domain/trip'
+import { projectWildlifeSightings } from '@/domain/wildlife'
 import { cn } from '@/lib/utils'
 
 function BackToTrips() {
@@ -432,18 +430,24 @@ function RarityLegend() {
 function RarityMark({
   rarity,
   points,
-  foundPercent,
+  found,
+  typicalPercent,
   extraCredit,
+  needsLiveStats,
   onOpenChange,
 }: {
   rarity: ExtraRarity
   points: number
-  foundPercent: number
+  found: FoundStat | null
+  typicalPercent?: number | null
   extraCredit?: boolean
+  needsLiveStats?: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
   const label = rarityLabel[rarity]
+  const colored = !needsLiveStats || found != null
+  const percent = found?.percent ?? typicalPercent ?? null
 
   function show(next: boolean) {
     setOpen(next)
@@ -454,9 +458,15 @@ function RarityMark({
     <span
       className={cn(
         'absolute right-0 top-0 z-10 size-[18px] rounded-bl-md rounded-tr-lg',
-        rarityMark[rarity],
+        colored ? rarityMark[rarity] : 'bg-sand-300',
       )}
-      aria-label={`${label} find, typically found ${foundPercent} percent of the time`}
+      aria-label={
+        percent != null
+          ? `${label} find, found ${percent} percent of the time`
+          : colored
+            ? `${label} find`
+            : 'No stats yet'
+      }
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()
@@ -470,8 +480,21 @@ function RarityMark({
           role="tooltip"
           className="absolute bottom-[calc(100%+8px)] right-0 z-20 w-max rounded-md bg-ink px-2.5 py-1.5 text-left text-xs font-normal normal-case tracking-normal text-white shadow-md"
         >
-          <span className={cn('font-semibold', rarityText[rarity])}>{label}</span> find
-          <span className="mt-0.5 block text-[11px] text-white/80">Found: {foundPercent}%</span>
+          {colored ? (
+            <>
+              <span className={cn('font-semibold', rarityText[rarity])}>{label}</span> find
+              {percent != null ? (
+                <span className="mt-0.5 block text-[11px] text-white/80">Found: {percent}%</span>
+              ) : null}
+              {found ? (
+                <span className="mt-0.5 block text-[11px] text-white/80">
+                  {found.foundTrips} of {found.tripCount} {found.tripCount === 1 ? 'trip' : 'trips'}
+                </span>
+              ) : null}
+            </>
+          ) : (
+            <span className="text-[11px] text-white/80">No stats yet</span>
+          )}
           {extraCredit && points ? (
             <span className="mt-0.5 block text-[11px] text-white/80">
               Worth {points} bonus {points === 1 ? 'point' : 'points'}
@@ -547,7 +570,9 @@ function PlateTile({
   extraCredit,
   rarity,
   points,
-  foundPercent,
+  found,
+  typicalPercent,
+  needsLiveStats,
   onToggle,
 }: {
   name: string
@@ -556,7 +581,9 @@ function PlateTile({
   extraCredit?: boolean
   rarity?: ExtraRarity | null
   points?: number
-  foundPercent?: number
+  found?: FoundStat | null
+  typicalPercent?: number | null
+  needsLiveStats?: boolean
   onToggle: () => void
 }) {
   const [hint, setHint] = useState(false)
@@ -574,7 +601,7 @@ function PlateTile({
       }
       aria-label={foundBy ? `${name}, found by ${foundBy}` : name}
       className={cn(
-        'relative min-h-14 w-full rounded-lg border px-2 py-3 text-center text-sm font-medium transition-colors',
+        'relative flex h-full min-h-14 w-full flex-1 items-center justify-center rounded-lg border px-2 py-3 text-center text-sm font-medium transition-colors',
         rarity ? 'pr-6' : null,
         readOnly ? 'cursor-default' : 'cursor-pointer',
         foundBy
@@ -588,8 +615,10 @@ function PlateTile({
         <RarityMark
           rarity={rarity}
           points={points ?? 0}
-          foundPercent={foundPercent ?? 0}
+          found={found ?? null}
+          typicalPercent={typicalPercent}
           extraCredit={extraCredit}
+          needsLiveStats={needsLiveStats}
           onOpenChange={setHint}
         />
       ) : null}
@@ -604,12 +633,14 @@ function PlateTile({
 function PlateGrid({
   country,
   found,
+  stats,
   live,
   extraCredit,
   onToggle,
 }: {
   country: Country
   found: Map<string, FoundPlate>
+  stats: GameStats | null
   live: boolean
   extraCredit?: boolean
   onToggle: (country: Country, state: string) => void
@@ -633,6 +664,7 @@ function PlateGrid({
         return (
           <motion.div
             key={plate.name}
+            className="flex"
             variants={
               reduceMotion
                 ? undefined
@@ -653,7 +685,8 @@ function PlateGrid({
               extraCredit={extraCredit}
               rarity={plateRarity(country, plate.name)}
               points={extraCreditPoints(country, plate.name)}
-              foundPercent={plateFoundPercent(country, plate.name)}
+              found={itemFoundStat(stats, plateKey(country, plate.name))}
+              typicalPercent={plateFoundPercent(country, plate.name)}
               onToggle={() => onToggle(country, plate.name)}
             />
           </motion.div>
@@ -663,18 +696,171 @@ function PlateGrid({
   )
 }
 
+function WildlifeGrid({
+  items,
+  found,
+  stats,
+  live,
+  extraCredit,
+  onToggle,
+}: {
+  items: typeof wildlifeAnimals
+  found: Map<string, { playerName: string }>
+  stats: GameStats | null
+  live: boolean
+  extraCredit?: boolean
+  onToggle: (speciesId: string) => void
+}) {
+  const reduceMotion = useReducedMotion()
+
+  return (
+    <motion.div
+      className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+      initial={reduceMotion ? false : 'hidden'}
+      animate="show"
+      variants={{
+        hidden: {},
+        show: {
+          transition: { staggerChildren: 0.018, delayChildren: 0.05 },
+        },
+      }}
+    >
+      {items.map((item) => {
+        const hit = found.get(item.id)
+        return (
+          <motion.div
+            key={item.id}
+            className="flex"
+            variants={
+              reduceMotion
+                ? undefined
+                : {
+                    hidden: { opacity: 0, y: 12 },
+                    show: {
+                      opacity: 1,
+                      y: 0,
+                      transition: { duration: 0.32, ease: easeOut },
+                    },
+                  }
+            }
+          >
+            <PlateTile
+              name={item.name}
+              foundBy={hit?.playerName}
+              readOnly={!live}
+              extraCredit={extraCredit}
+              rarity={item.rarity}
+              points={extraCredit ? pointsForRarity(item.rarity) : 0}
+              found={itemFoundStat(stats, item.id)}
+              needsLiveStats
+              onToggle={() => onToggle(item.id)}
+            />
+          </motion.div>
+        )
+      })}
+    </motion.div>
+  )
+}
+
+function TripGameNav({ tripId, game }: { tripId: string; game: TripGame }) {
+  return (
+    <nav
+      aria-label="Games"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-sand-200 bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+    >
+      <div className="mx-auto grid max-w-3xl grid-cols-2">
+        <GameTab
+          to={tripGameHref(tripId, 'plates')}
+          active={game === 'plates'}
+          icon={Car}
+          label="Plates"
+        />
+        <GameTab
+          to={tripGameHref(tripId, 'wildlife')}
+          active={game === 'wildlife'}
+          icon={Binoculars}
+          label="Wildlife"
+        />
+      </div>
+    </nav>
+  )
+}
+
+function GameTab({
+  to,
+  active,
+  icon: Icon,
+  label,
+}: {
+  to: string
+  active: boolean
+  icon: typeof Car
+  label: string
+}) {
+  return (
+    <Link
+      to={to}
+      replace
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex min-h-14 flex-col items-center justify-center gap-0.5 border-t-2 text-[11px] font-medium',
+        active ? 'border-forest text-forest' : 'border-transparent text-sand-400',
+      )}
+    >
+      <Icon className="size-5" />
+      {label}
+    </Link>
+  )
+}
+
+function TimelineEvent({ event }: { event: TripEvent }) {
+  if (isWildlifeEvent(event)) {
+    const item = wildlifeById[event.speciesId]
+    const name = item?.name ?? event.speciesId
+    return (
+      <>
+        {event.playerName} {event.type === 'wildlife_found' ? 'spotted' : 'removed'} {name}
+        {item?.kind === 'sign' ? (
+          <span className="text-gold">
+            {' '}
+            · extra credit
+            {item.rarity === 'rare' ? ' · rare' : ''}
+          </span>
+        ) : null}
+      </>
+    )
+  }
+
+  return (
+    <>
+      {event.playerName} {event.type === 'plate_found' ? 'found' : 'removed'} {event.state}
+      {event.country !== 'usa' ? (
+        <span className="text-gold">
+          {' '}
+          · extra credit
+          {extraCreditRarity(event.country, event.state) === 'rare' ? ' · rare' : ''}
+        </span>
+      ) : null}
+    </>
+  )
+}
+
 export function TripPage() {
   const { tripId } = useParams()
+  const [params] = useSearchParams()
+  const game = parseTripGame(params.get('game'))
   const { profile } = useAuth()
   const [trip, setTrip] = useState<Trip | null>(null)
   const [tripReady, setTripReady] = useState(false)
   const [eventsReady, setEventsReady] = useState(false)
   const [members, setMembers] = useState<TripMember[]>([])
-  const [events, setEvents] = useState<PlateEvent[]>([])
+  const [events, setEvents] = useState<TripEvent[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
   const [joinError, setJoinError] = useState<string | null>(null)
   const [joining, setJoining] = useState(false)
   const [toggleError, setToggleError] = useState<string | null>(null)
+  const [plateStats, setPlateStats] = useState<GameStats | null>(null)
+  const [wildlifeStats, setWildlifeStats] = useState<GameStats | null>(null)
   const pendingToggles = useRef(new Set<string>())
   const memberBackfillKey = useRef<string | null>(null)
 
@@ -707,11 +893,46 @@ export function TripPage() {
     }
   }, [tripId])
 
-  const found = useMemo(() => projectFoundPlates(events), [events])
-  const timeline = useMemo(
-    () => [...events].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 40),
+  useEffect(() => {
+    const stopPlates = listenGameStats('plates', setPlateStats)
+    const stopWildlife = listenGameStats('wildlife', setWildlifeStats)
+    return () => {
+      stopPlates()
+      stopWildlife()
+    }
+  }, [])
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }, [game])
+
+  const found = useMemo(() => projectFoundPlates(events.filter(isPlateEvent)), [events])
+  const wildlifeFound = useMemo(
+    () => projectWildlifeSightings(events.filter(isWildlifeEvent)),
     [events],
   )
+  const animalsSpotted = useMemo(
+    () => wildlifeAnimals.filter((item) => wildlifeFound.has(item.id)).length,
+    [wildlifeFound],
+  )
+  const signsSpotted = useMemo(
+    () => wildlifeSigns.filter((item) => wildlifeFound.has(item.id)).length,
+    [wildlifeFound],
+  )
+  const wildlifeSignPoints = useMemo(
+    () =>
+      wildlifeSigns.reduce(
+        (sum, item) => (wildlifeFound.has(item.id) ? sum + pointsForRarity(item.rarity) : sum),
+        0,
+      ),
+    [wildlifeFound],
+  )
+  const timeline = useMemo(() => {
+    const relevant = events.filter((event) =>
+      game === 'wildlife' ? isWildlifeEvent(event) : isPlateEvent(event),
+    )
+    return [...relevant].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 40)
+  }, [events, game])
   const live = trip ? isTripLive(trip) : false
   const isMember = Boolean(profile && trip?.memberUids.includes(profile.uid))
   const listedWithGroup = Boolean(profile && members.some((member) => member.uid === profile.uid))
@@ -777,6 +998,33 @@ export function TripPage() {
     }
   }
 
+  async function onToggleWildlife(speciesId: string) {
+    if (!tripId || !profile || !live || !isMember) return
+    const key = `wildlife:${speciesId}`
+    if (pendingToggles.current.has(key)) return
+    pendingToggles.current.add(key)
+    const currentlyFound = wildlifeFound.has(speciesId)
+    try {
+      await toggleWildlife({ tripId, currentlyFound, speciesId, player: profile })
+      setToggleError(null)
+    } catch (err) {
+      if (isPermissionDenied(err)) {
+        try {
+          await joinTrip(tripId, profile)
+          await toggleWildlife({ tripId, currentlyFound, speciesId, player: profile })
+          setToggleError(null)
+          return
+        } catch (retryErr) {
+          setToggleError(retryErr instanceof Error ? retryErr.message : 'Could not update that sighting.')
+          return
+        }
+      }
+      setToggleError(err instanceof Error ? err.message : 'Could not update that sighting.')
+    } finally {
+      pendingToggles.current.delete(key)
+    }
+  }
+
   if (loadError && !tripReady) {
     return (
       <div className="flex flex-col gap-3">
@@ -820,7 +1068,7 @@ export function TripPage() {
         ) : null}
         {live ? (
           <>
-            <p className="text-sand-600">Join this trip to hunt plates with the family.</p>
+            <p className="text-sand-600">Join this trip to play with the family.</p>
             {joinError ? <p className="text-sm text-red-700">{joinError}</p> : null}
             <Button className="mt-1 w-fit" onClick={() => void onJoin()} disabled={joining}>
               {joining ? 'Joining…' : 'Join this trip'}
@@ -836,7 +1084,7 @@ export function TripPage() {
   }
 
   return (
-    <div>
+    <div className="pb-[calc(4.75rem+env(safe-area-inset-bottom))]">
       <div>
         <BackToTrips />
         <div className="flex items-center justify-between gap-2">
@@ -846,27 +1094,37 @@ export function TripPage() {
         <PlayingPlayers players={players} />
       </div>
 
-      <PlateScore
-        usaFound={usaFound}
-        usaTotal={plates.usa.length}
-        extra={extra}
-        canadaTotal={plates.canada.length}
-        mexicoTotal={plates.mexico.length}
-      />
+      {game === 'plates' ? (
+        <PlateScore
+          usaFound={usaFound}
+          usaTotal={plates.usa.length}
+          extra={extra}
+          canadaTotal={plates.canada.length}
+          mexicoTotal={plates.mexico.length}
+        />
+      ) : null}
 
       {!live ? (
         <p className="mt-3 rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-600">
-          This trip has ended. You can look back, but plates can no longer be changed.
+          This trip has ended. You can look back, but finds can no longer be changed.
         </p>
       ) : null}
       {toggleError ? <p className="mt-2 text-sm text-red-700">{toggleError}</p> : null}
 
+      {game === 'plates' ? (
+        <>
       <section className="mt-8">
         <h2 className="mb-1 text-lg font-semibold">{countryLabels.usa}</h2>
         <RarityLegend />
         <UsaPlateMap found={found} />
         <div className="mt-4">
-          <PlateGrid country="usa" found={found} live={live} onToggle={(country, state) => void onToggle(country, state)} />
+          <PlateGrid
+            country="usa"
+            found={found}
+            stats={plateStats}
+            live={live}
+            onToggle={(country, state) => void onToggle(country, state)}
+          />
         </div>
       </section>
 
@@ -923,6 +1181,7 @@ export function TripPage() {
               <PlateGrid
                 country={country}
                 found={found}
+                stats={plateStats}
                 live={live}
                 extraCredit
                 onToggle={(nextCountry, state) => void onToggle(nextCountry, state)}
@@ -931,6 +1190,73 @@ export function TripPage() {
           )
         })}
       </section>
+        </>
+      ) : (
+      <section className="mt-3 flex flex-col gap-6 rounded-xl border border-sand-200 bg-white p-4 shadow-sm">
+        <div>
+          <h2 className="font-brand flex items-center gap-2 text-xl tracking-wide text-forest">
+            <Binoculars className="size-5 text-gold" />
+            Wildlife hunt
+          </h2>
+          <p className="mt-1 text-sm text-sand-600">
+            Spot them from the car as you drive around the park. Stay in the vehicle and never
+            approach. If traffic is stopped, wait until you can look safely.
+          </p>
+          <div className="mt-3 flex items-end justify-between gap-3">
+            <p className="text-sm text-sand-500">
+              {animalsSpotted} of {wildlifeAnimals.length} animals
+              {signsSpotted > 0 ? ` · ${signsSpotted} signs` : ''}
+            </p>
+            {wildlifeSignPoints > 0 ? (
+              <p className="font-brand text-2xl tracking-wide text-gold">+{wildlifeSignPoints} bonus</p>
+            ) : null}
+          </div>
+          <div
+            className="mt-2 h-1.5 overflow-hidden rounded-full bg-sand-100"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={wildlifeAnimals.length}
+            aria-valuenow={animalsSpotted}
+            aria-label="Wildlife animals spotted"
+          >
+            <div
+              className="h-full rounded-full bg-forest transition-[width] duration-300"
+              style={{ width: `${(animalsSpotted / wildlifeAnimals.length) * 100}%` }}
+            />
+          </div>
+          <div className="mt-3">
+            {wildlifeStats && wildlifeStats.tripCount > 0 ? <RarityLegend /> : null}
+          </div>
+        </div>
+
+        <WildlifeGrid
+          items={wildlifeAnimals}
+          found={wildlifeFound}
+          stats={wildlifeStats}
+          live={live}
+          onToggle={(speciesId) => void onToggleWildlife(speciesId)}
+        />
+
+        <div>
+          <h3 className="mb-1 text-lg font-semibold text-forest">
+            <span aria-hidden>🪧 </span>
+            Signs
+          </h3>
+          <p className="mb-3 text-sm text-sand-600">
+            Extra credit for the days you hear an elk, wait in a jam, or find tracks instead of the
+            animal itself.
+          </p>
+          <WildlifeGrid
+            items={wildlifeSigns}
+            found={wildlifeFound}
+            stats={wildlifeStats}
+            live={live}
+            extraCredit
+            onToggle={(speciesId) => void onToggleWildlife(speciesId)}
+          />
+        </div>
+      </section>
+      )}
 
       <details className="mt-8 group rounded-xl border border-sand-200 bg-white">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
@@ -951,20 +1277,14 @@ export function TripPage() {
                 <li key={event.id} className="text-sand-700">
                   <span className="text-sand-400">{dayjs(event.at).format('MMM D, h:mm A')}</span>
                   {' — '}
-                  {event.playerName} {event.type === 'plate_found' ? 'found' : 'removed'} {event.state}
-                  {event.country !== 'usa' ? (
-                    <span className="text-gold">
-                      {' '}
-                      · extra credit
-                      {extraCreditRarity(event.country, event.state) === 'rare' ? ' · rare' : ''}
-                    </span>
-                  ) : null}
+                  <TimelineEvent event={event} />
                 </li>
               ))}
             </ol>
           )}
         </div>
       </details>
+      <TripGameNav tripId={trip.id} game={game} />
     </div>
   )
 }

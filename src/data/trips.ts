@@ -17,8 +17,11 @@ import {
 } from 'firebase/firestore'
 import { createJoinCode } from '@/domain/join-code'
 import type { Country, PlateEvent } from '@/domain/plates'
+import { parseTripEvent, type TripEvent } from '@/domain/trip-event'
+import type { WildlifeEvent } from '@/domain/wildlife'
 import { isTripLive, type Trip, type TripMember, type UserProfile } from '@/domain/trip'
 import { db } from '@/lib/firebase'
+import { syncPlateStatsFromTrip, syncWildlifeStatsFromTrip } from '@/data/stats'
 
 function tripRef(tripId: string) {
   return doc(db, 'trips', tripId)
@@ -235,7 +238,7 @@ export function listenMembers(
 
 export function listenEvents(
   tripId: string,
-  onChange: (events: PlateEvent[]) => void,
+  onChange: (events: TripEvent[]) => void,
   onError?: (message: string) => void,
 ): Unsubscribe {
   let delivered = false
@@ -244,10 +247,9 @@ export function listenEvents(
     (snap) => {
       delivered = true
       onChange(
-        snap.docs.map((item) => ({
-          id: item.id,
-          ...(item.data() as Omit<PlateEvent, 'id'>),
-        })),
+        snap.docs
+          .map((item) => parseTripEvent(item.id, item.data() as Record<string, unknown>))
+          .filter((event): event is TripEvent => event != null),
       )
     },
     (err) => {
@@ -284,6 +286,39 @@ async function readTripForWrite(tripId: string): Promise<Trip> {
   return tripFromDoc(snap.id, snap.data())
 }
 
+export async function writeWildlifeEvent(
+  tripId: string,
+  event: Omit<WildlifeEvent, 'id'>,
+): Promise<void> {
+  await addDoc(collection(db, 'trips', tripId, 'events'), event)
+}
+
+export async function toggleWildlife(input: {
+  tripId: string
+  currentlyFound: boolean
+  speciesId: string
+  player: UserProfile
+}): Promise<void> {
+  const trip = await readTripForWrite(input.tripId)
+  if (!isTripLive(trip)) {
+    throw new Error('This trip has ended. Sightings can no longer be changed.')
+  }
+
+  const event = {
+    type: input.currentlyFound ? 'wildlife_unfound' : 'wildlife_found',
+    playerId: input.player.uid,
+    playerName: input.player.displayName,
+    speciesId: input.speciesId,
+    at: new Date().toISOString(),
+  } as const
+  await writeWildlifeEvent(input.tripId, event)
+  try {
+    await syncWildlifeStatsFromTrip(input.tripId, { ...event, id: `local:${event.at}` })
+  } catch {
+    // The sighting is stored; rates catch up on the next rebuild or online toggle.
+  }
+}
+
 export async function togglePlate(input: {
   tripId: string
   currentlyFound: boolean
@@ -296,12 +331,18 @@ export async function togglePlate(input: {
     throw new Error('This trip has ended. Plates can no longer be changed.')
   }
 
-  await writePlateEvent(input.tripId, {
+  const event = {
     type: input.currentlyFound ? 'plate_unfound' : 'plate_found',
     playerId: input.player.uid,
     playerName: input.player.displayName,
     country: input.country,
     state: input.state,
     at: new Date().toISOString(),
-  })
+  } as const
+  await writePlateEvent(input.tripId, event)
+  try {
+    await syncPlateStatsFromTrip(input.tripId, { ...event, id: `local:${event.at}` })
+  } catch {
+    // The find is stored; rates catch up on the next rebuild or online toggle.
+  }
 }

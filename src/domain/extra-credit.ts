@@ -2,10 +2,14 @@ import type { Country, FoundPlate } from './plates'
 
 export type ExtraRarity = 'common' | 'uncommon' | 'rare'
 
-const POINTS: Record<ExtraRarity, number> = {
+export const POINTS: Record<ExtraRarity, number> = {
   common: 1,
   uncommon: 2,
   rare: 3,
+}
+
+export function pointsForRarity(rarity: ExtraRarity): number {
+  return POINTS[rarity]
 }
 
 const USA_RARITY: Record<string, ExtraRarity> = {
