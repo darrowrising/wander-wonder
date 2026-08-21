@@ -178,13 +178,15 @@ function PlayingPlayers({ players }: { players: { uid: string; displayName: stri
   )
 }
 
+const easeOut = [0.22, 1, 0.36, 1] as const
+
 const chipReveal = {
   hidden: { opacity: 0, y: 8, scale: 0.96 },
   show: {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.28, ease: easeOut },
   },
 }
 
@@ -257,13 +259,12 @@ function PlateScore({
   const complete = usaFound >= usaTotal && usaTotal > 0
 
   useEffect(() => {
-    const node = cardRef.current
-    if (!node) return
-
     let frame = 0
     function update() {
       frame = 0
-      const bottom = node.getBoundingClientRect().bottom
+      const card = cardRef.current
+      if (!card) return
+      const bottom = card.getBoundingClientRect().bottom
       setStuck((prev) => (prev ? bottom < 24 : bottom <= 0))
     }
     function onScroll() {
@@ -640,7 +641,7 @@ function PlateGrid({
                     show: {
                       opacity: 1,
                       y: 0,
-                      transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
+                      transition: { duration: 0.32, ease: easeOut },
                     },
                   }
             }
