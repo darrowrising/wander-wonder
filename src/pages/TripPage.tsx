@@ -1114,9 +1114,11 @@ export function TripPage() {
       {game === 'plates' ? (
         <>
       <section className="mt-8">
-        <h2 className="mb-1 text-lg font-semibold">{countryLabels.usa}</h2>
-        <RarityLegend />
+        <h2 className="mb-3 text-lg font-semibold">{countryLabels.usa}</h2>
         <UsaPlateMap found={found} />
+        <div className="mt-3">
+          <RarityLegend />
+        </div>
         <div className="mt-4">
           <PlateGrid
             country="usa"
