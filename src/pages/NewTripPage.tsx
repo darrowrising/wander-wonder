@@ -31,17 +31,17 @@ export function NewTripPage() {
   }
 
   return (
-    <form className="mx-auto flex max-w-md flex-col gap-4" onSubmit={(event) => void onSubmit(event)}>
+    <form className="mx-auto flex min-w-0 max-w-md flex-col gap-4" onSubmit={(event) => void onSubmit(event)}>
       <h1 className="text-2xl font-semibold">New trip</h1>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="trip-name">Name</Label>
         <Input id="trip-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Grand Teton 2026" required />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="start">Start</Label>
         <Input id="start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="end">End</Label>
         <Input id="end" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
       </div>

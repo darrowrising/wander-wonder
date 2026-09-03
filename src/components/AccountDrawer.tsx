@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { LogOut, Menu, Plus, Shield, X } from 'lucide-react'
+import { List, LogOut, Menu, Plus, Shield, X } from 'lucide-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { isAdminEmail } from '@/config/admin'
 import { cn } from '@/lib/utils'
@@ -76,6 +76,10 @@ export function AccountDrawer() {
                   </button>
                 </div>
                 <nav className="flex flex-1 flex-col py-2">
+                  <Link to="/" className={rowClass} onClick={() => setOpen(false)}>
+                    <List className="size-4 text-sand-500" />
+                    All trips
+                  </Link>
                   <Link to="/trips/new" className={rowClass} onClick={() => setOpen(false)}>
                     <Plus className="size-4 text-sand-500" />
                     New trip
