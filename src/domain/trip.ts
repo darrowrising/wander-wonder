@@ -24,6 +24,8 @@ export type UserProfile = {
   email: string | null
 }
 
+export type TripPlayState = 'upcoming' | 'active' | 'ended'
+
 export function isTripLive(trip: Pick<Trip, 'endDate' | 'endsAt'>, now = Date.now()): boolean {
   if (typeof trip.endsAt === 'number') {
     return trip.endsAt >= now
@@ -32,4 +34,27 @@ export function isTripLive(trip: Pick<Trip, 'endDate' | 'endsAt'>, now = Date.no
   const end = Date.parse(`${trip.endDate}T23:59:59.999`)
   if (Number.isNaN(end)) return true
   return end >= now
+}
+
+export function isTripStarted(trip: Pick<Trip, 'startDate'>, now = Date.now()): boolean {
+  if (!trip.startDate) return true
+  const start = Date.parse(`${trip.startDate}T00:00:00.000`)
+  if (Number.isNaN(start)) return true
+  return start <= now
+}
+
+export function isTripActive(
+  trip: Pick<Trip, 'startDate' | 'endDate' | 'endsAt'>,
+  now = Date.now(),
+): boolean {
+  return isTripStarted(trip, now) && isTripLive(trip, now)
+}
+
+export function tripPlayState(
+  trip: Pick<Trip, 'startDate' | 'endDate' | 'endsAt'>,
+  now = Date.now(),
+): TripPlayState {
+  if (!isTripLive(trip, now)) return 'ended'
+  if (!isTripStarted(trip, now)) return 'upcoming'
+  return 'active'
 }

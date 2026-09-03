@@ -5,7 +5,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardTitle } from '@/components/ui/card'
 import { backfillTripEndsAt, listenMyTrips, warmTripCache } from '@/data/trips'
-import { isTripLive, type Trip } from '@/domain/trip'
+import { isTripActive, isTripLive, type Trip } from '@/domain/trip'
 
 function TripList({ trips, ended }: { trips: Trip[]; ended?: boolean }) {
   if (trips.length === 0) {
@@ -22,7 +22,7 @@ function TripList({ trips, ended }: { trips: Trip[]; ended?: boolean }) {
               {trip.startDate && trip.endDate
                 ? `${dayjs(trip.startDate).format('MMM D, YYYY')} – ${dayjs(trip.endDate).format('MMM D, YYYY')}`
                 : 'Dates not set'}
-              {ended ? ' · view only' : ''}
+              {ended ? ' · view only' : !isTripActive(trip) ? ' · not started yet' : ''}
             </CardDescription>
           </Card>
         </Link>

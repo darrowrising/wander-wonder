@@ -16,7 +16,7 @@ import { itemFoundStat, type FoundStat, type GameStats } from '@/domain/game-sta
 import { countFoundByCountry, plateKey, projectFoundPlates, type Country, type FoundPlate } from '@/domain/plates'
 import { isPlateEvent, isWildlifeEvent, type TripEvent } from '@/domain/trip-event'
 import { parseTripGame, tripGameHref, type TripGame } from '@/domain/trip-game'
-import { isTripLive, type Trip, type TripMember } from '@/domain/trip'
+import { isTripActive, isTripLive, tripPlayState, type Trip, type TripMember } from '@/domain/trip'
 import { projectWildlifeSightings } from '@/domain/wildlife'
 import { cn } from '@/lib/utils'
 
@@ -934,6 +934,8 @@ export function TripPage() {
     return [...relevant].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 40)
   }, [events, game])
   const live = trip ? isTripLive(trip) : false
+  const active = trip ? isTripActive(trip) : false
+  const playState = trip ? tripPlayState(trip) : 'ended'
   const isMember = Boolean(profile && trip?.memberUids.includes(profile.uid))
   const listedWithGroup = Boolean(profile && members.some((member) => member.uid === profile.uid))
   const players = useMemo(() => {
@@ -972,7 +974,7 @@ export function TripPage() {
   }
 
   async function onToggle(country: Country, state: string) {
-    if (!tripId || !profile || !live || !isMember) return
+    if (!tripId || !profile || !active || !isMember) return
     const key = plateKey(country, state)
     if (pendingToggles.current.has(key)) return
     pendingToggles.current.add(key)
@@ -999,7 +1001,7 @@ export function TripPage() {
   }
 
   async function onToggleWildlife(speciesId: string) {
-    if (!tripId || !profile || !live || !isMember) return
+    if (!tripId || !profile || !active || !isMember) return
     const key = `wildlife:${speciesId}`
     if (pendingToggles.current.has(key)) return
     pendingToggles.current.add(key)
@@ -1108,6 +1110,11 @@ export function TripPage() {
         <p className="mt-3 rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-600">
           This trip has ended. You can look back, but finds can no longer be changed.
         </p>
+      ) : playState === 'upcoming' ? (
+        <p className="mt-3 rounded-lg border border-sand-200 bg-sand-50 px-3 py-2 text-sm text-sand-600">
+          This trip starts {dayjs(trip.startDate).format('MMM D, YYYY')}. You can look around, but
+          plates and wildlife stay locked until then.
+        </p>
       ) : null}
       {toggleError ? <p className="mt-2 text-sm text-red-700">{toggleError}</p> : null}
 
@@ -1124,7 +1131,7 @@ export function TripPage() {
             country="usa"
             found={found}
             stats={plateStats}
-            live={live}
+            live={active}
             onToggle={(country, state) => void onToggle(country, state)}
           />
         </div>
@@ -1184,7 +1191,7 @@ export function TripPage() {
                 country={country}
                 found={found}
                 stats={plateStats}
-                live={live}
+                live={active}
                 extraCredit
                 onToggle={(nextCountry, state) => void onToggle(nextCountry, state)}
               />
@@ -1235,7 +1242,7 @@ export function TripPage() {
           items={wildlifeAnimals}
           found={wildlifeFound}
           stats={wildlifeStats}
-          live={live}
+          live={active}
           onToggle={(speciesId) => void onToggleWildlife(speciesId)}
         />
 
@@ -1252,7 +1259,7 @@ export function TripPage() {
             items={wildlifeSigns}
             found={wildlifeFound}
             stats={wildlifeStats}
-            live={live}
+            live={active}
             extraCredit
             onToggle={(speciesId) => void onToggleWildlife(speciesId)}
           />

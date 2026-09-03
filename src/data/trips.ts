@@ -19,7 +19,7 @@ import { createJoinCode } from '@/domain/join-code'
 import type { Country, PlateEvent } from '@/domain/plates'
 import { parseTripEvent, type TripEvent } from '@/domain/trip-event'
 import type { WildlifeEvent } from '@/domain/wildlife'
-import { isTripLive, type Trip, type TripMember, type UserProfile } from '@/domain/trip'
+import { isTripActive, isTripLive, type Trip, type TripMember, type UserProfile } from '@/domain/trip'
 import { db } from '@/lib/firebase'
 import { syncPlateStatsFromTrip, syncWildlifeStatsFromTrip } from '@/data/stats'
 
@@ -300,8 +300,12 @@ export async function toggleWildlife(input: {
   player: UserProfile
 }): Promise<void> {
   const trip = await readTripForWrite(input.tripId)
-  if (!isTripLive(trip)) {
-    throw new Error('This trip has ended. Sightings can no longer be changed.')
+  if (!isTripActive(trip)) {
+    throw new Error(
+      isTripLive(trip)
+        ? "This trip hasn't started yet. Sightings can be logged once it begins."
+        : 'This trip has ended. Sightings can no longer be changed.',
+    )
   }
 
   const event = {
@@ -327,8 +331,12 @@ export async function togglePlate(input: {
   player: UserProfile
 }): Promise<void> {
   const trip = await readTripForWrite(input.tripId)
-  if (!isTripLive(trip)) {
-    throw new Error('This trip has ended. Plates can no longer be changed.')
+  if (!isTripActive(trip)) {
+    throw new Error(
+      isTripLive(trip)
+        ? "This trip hasn't started yet. Plates can be logged once it begins."
+        : 'This trip has ended. Plates can no longer be changed.',
+    )
   }
 
   const event = {
