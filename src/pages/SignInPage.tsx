@@ -12,6 +12,7 @@ export function SignInPage() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth()
   const location = useLocation()
   const joiningTrip = /^\/trips\/(?!new$).+/.test(location.pathname)
+  const tripName = new URLSearchParams(location.search).get('n')?.trim() || ''
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -53,7 +54,11 @@ export function SignInPage() {
       <BrandMark as="heading" className="text-4xl leading-tight" />
       <p className="mt-3 text-xl font-medium tracking-tight text-sand-700">{product.tagline}</p>
       <p className="mt-2 text-sand-600">
-        {joiningTrip ? 'Sign in to join this trip.' : 'Sign in to create or join a family trip.'}
+        {joiningTrip
+          ? tripName
+            ? `Sign in to join ${tripName}.`
+            : 'Sign in to join this trip.'
+          : 'Sign in to create or join a family trip.'}
       </p>
 
       <Button className="mt-8 w-full" size="lg" onClick={() => void onGoogle()} disabled={busy}>

@@ -15,6 +15,7 @@ import { extraCreditPoints, extraCreditRarity, plateFoundPercent, plateRarity, p
 import { itemFoundStat, type FoundStat, type GameStats } from '@/domain/game-stats'
 import { countFoundByCountry, plateKey, projectFoundPlates, type Country, type FoundPlate } from '@/domain/plates'
 import { isPlateEvent, isWildlifeEvent, type TripEvent } from '@/domain/trip-event'
+import { tripShareClipboard, tripShareTitle } from '@/domain/share-trip'
 import { parseTripGame, tripGameHref, type TripGame } from '@/domain/trip-game'
 import { isTripActive, isTripLive, tripPlayState, type Trip, type TripMember } from '@/domain/trip'
 import { projectWildlifeSightings } from '@/domain/wildlife'
@@ -31,52 +32,57 @@ function BackToTrips() {
   )
 }
 
-function ShareTripButton({ tripId }: { tripId: string }) {
-  const [open, setOpen] = useState(false)
+function tripDateRange(startDate: string, endDate: string): string | undefined {
+  if (!startDate || !endDate) return undefined
+  const start = dayjs(startDate)
+  const end = dayjs(endDate)
+  if (!start.isValid() || !end.isValid()) return undefined
+  if (start.isSame(end, 'day')) return start.format('MMM D, YYYY')
+  if (start.isSame(end, 'year') && start.isSame(end, 'month')) {
+    return `${start.format('MMM D')} – ${end.format('D, YYYY')}`
+  }
+  if (start.isSame(end, 'year')) return `${start.format('MMM D')} – ${end.format('MMM D, YYYY')}`
+  return `${start.format('MMM D, YYYY')} – ${end.format('MMM D, YYYY')}`
+}
+
+function ShareTripButton({ trip }: { trip: Pick<Trip, 'id' | 'name' | 'startDate' | 'endDate'> }) {
   const [copied, setCopied] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
-  const url = `${window.location.origin}/trips/${tripId}`
+  const [copyError, setCopyError] = useState(false)
+  const dateRange = tripDateRange(trip.startDate, trip.endDate)
+  const share = {
+    origin: window.location.origin,
+    tripId: trip.id,
+    name: trip.name,
+    dateRange,
+  }
+  const showStatus = copied || copyError
 
   useEffect(() => {
-    if (!open) return
-    function onPointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [open])
-
-  useEffect(() => {
-    if (!copied) return
-    const timer = window.setTimeout(() => setCopied(false), 1500)
+    if (!showStatus) return
+    const timer = window.setTimeout(() => {
+      setCopied(false)
+      setCopyError(false)
+    }, 3200)
     return () => window.clearTimeout(timer)
-  }, [copied])
+  }, [showStatus])
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(url)
+      await navigator.clipboard.writeText(tripShareClipboard(share))
+      setCopyError(false)
       setCopied(true)
-      setOpen(false)
     } catch {
       setCopied(false)
+      setCopyError(true)
     }
   }
 
   return (
-    <div ref={rootRef} className="relative shrink-0">
+    <div className="relative shrink-0">
       <button
         type="button"
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label={copied ? 'Copied join link' : 'Share trip'}
-        onClick={() => setOpen((prev) => !prev)}
+        aria-label={copied ? 'Invite copied' : 'Share trip'}
+        onClick={() => void copyLink()}
         className="relative flex size-9 cursor-pointer items-center justify-center overflow-hidden rounded-lg text-sand-500 transition-colors hover:bg-sand-100 hover:text-forest"
       >
         <AnimatePresence mode="wait" initial={false}>
@@ -93,25 +99,19 @@ function ShareTripButton({ tripId }: { tripId: string }) {
         </AnimatePresence>
       </button>
       <AnimatePresence>
-        {open ? (
-          <motion.div
-            role="menu"
-            initial={{ opacity: 0, y: -8, scale: 0.96 }}
+        {showStatus ? (
+          <motion.p
+            role="status"
+            aria-live="polite"
+            initial={{ opacity: 0, y: -6, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+            exit={{ opacity: 0, y: -6, scale: 0.96 }}
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
             style={{ originX: 1, originY: 0 }}
-            className="absolute right-0 top-full z-30 mt-1 min-w-36 rounded-lg border border-sand-200 bg-white py-1 shadow-sm"
+            className="absolute right-0 top-full z-30 mt-1 w-max max-w-[16rem] rounded-lg border border-sand-200 bg-white px-3 py-2 text-sm text-forest shadow-sm"
           >
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => void copyLink()}
-              className="flex w-full cursor-pointer px-3 py-2 text-left text-sm text-forest hover:bg-sand-50"
-            >
-              Share link
-            </button>
-          </motion.div>
+            {copyError ? "Couldn't copy. Try again." : 'Copied — ready to paste.'}
+          </motion.p>
         ) : null}
       </AnimatePresence>
     </div>
@@ -906,6 +906,15 @@ export function TripPage() {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [game])
 
+  useEffect(() => {
+    if (!trip) return
+    const previous = document.title
+    document.title = tripShareTitle(trip.name)
+    return () => {
+      document.title = previous
+    }
+  }, [trip])
+
   const found = useMemo(() => projectFoundPlates(events.filter(isPlateEvent)), [events])
   const wildlifeFound = useMemo(
     () => projectWildlifeSightings(events.filter(isWildlifeEvent)),
@@ -1091,7 +1100,7 @@ export function TripPage() {
         <BackToTrips />
         <div className="flex items-center justify-between gap-2">
           <h1 className="font-brand text-2xl tracking-wide text-forest">{trip.name}</h1>
-          {live ? <ShareTripButton tripId={trip.id} /> : null}
+          {live ? <ShareTripButton trip={trip} /> : null}
         </div>
         <PlayingPlayers players={players} />
       </div>
