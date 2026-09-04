@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { leadingFindCount, tallyFindsByPlayer } from './find-tally'
+import { firstName, leadingFindCount, tallyFindsByPlayer } from './find-tally'
 
 describe('tallyFindsByPlayer', () => {
   const players = [
@@ -44,5 +44,13 @@ describe('tallyFindsByPlayer', () => {
     )
     expect(rows.map((row) => row.playerName)).toEqual(['Ben', 'Logan'])
     expect(leadingFindCount(rows)).toBe(1)
+  })
+})
+
+describe('firstName', () => {
+  it('keeps the given name and drops the rest', () => {
+    expect(firstName('Ben Ellis')).toBe('Ben')
+    expect(firstName('Logan')).toBe('Logan')
+    expect(firstName('  Mary Jane  ')).toBe('Mary')
   })
 })

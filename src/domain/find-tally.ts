@@ -41,3 +41,9 @@ export function tallyFindsByPlayer(
 export function leadingFindCount(rows: readonly PlayerTally[]): number {
   return rows[0]?.count ?? 0
 }
+
+export function firstName(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed) return name
+  return trimmed.split(/\s+/)[0] ?? trimmed
+}

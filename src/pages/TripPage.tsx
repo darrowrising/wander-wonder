@@ -12,7 +12,7 @@ import { UsaPlateMap } from '@/components/UsaPlateMap'
 import { ensureTripMember, joinTrip, listenEvents, listenMembers, listenTrip, togglePlate, toggleWildlife } from '@/data/trips'
 import { listenGameStats } from '@/data/stats'
 import { extraCreditPoints, extraCreditRarity, plateFoundPercent, plateRarity, pointsForRarity, summarizeExtraCredit, type ExtraCreditSummary, type ExtraRarity } from '@/domain/extra-credit'
-import { leadingFindCount, tallyFindsByPlayer } from '@/domain/find-tally'
+import { firstName, leadingFindCount, tallyFindsByPlayer } from '@/domain/find-tally'
 import { itemFoundStat, type FoundStat, type GameStats } from '@/domain/game-stats'
 import { countFoundByCountry, plateKey, projectFoundPlates, type Country, type FoundPlate } from '@/domain/plates'
 import { isPlateEvent, isWildlifeEvent, type TripEvent } from '@/domain/trip-event'
@@ -191,7 +191,7 @@ function FindTally({
   const rows = useMemo(() => tallyFindsByPlayer(finds.values(), players), [finds, players])
   if (players.length < 2) return null
   const lead = leadingFindCount(rows)
-  const leaderNames = rows.filter((row) => lead > 0 && row.count === lead).map((row) => row.playerName)
+  const leaderNames = rows.filter((row) => lead > 0 && row.count === lead).map((row) => firstName(row.playerName))
   const summary =
     leaderNames.length === 0
       ? 'No finds yet'
@@ -238,7 +238,7 @@ function FindTally({
                     >
                       <span className="w-4 shrink-0 text-xs tabular-nums text-sand-400">{index + 1}</span>
                       {leading ? <Star className="size-3.5 shrink-0 fill-gold text-gold" /> : null}
-                      <span className="truncate">{row.playerName}</span>
+                      <span className="truncate">{firstName(row.playerName)}</span>
                     </span>
                     <span
                       className={cn(
