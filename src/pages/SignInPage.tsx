@@ -58,7 +58,7 @@ export function SignInPage() {
           ? tripName
             ? `Sign in to join ${tripName}.`
             : 'Sign in to join this trip.'
-          : 'Sign in to create or join a family trip.'}
+          : 'Sign in to create or join a trip.'}
       </p>
 
       <Button className="mt-8 w-full" size="lg" onClick={() => void onGoogle()} disabled={busy}>

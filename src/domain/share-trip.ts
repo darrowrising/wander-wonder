@@ -23,14 +23,8 @@ export function tripShareLink(input: TripShareInput): string {
   return url.toString()
 }
 
-export function tripShareInvite(name: string): string {
-  const trimmed = name.trim()
-  return trimmed ? `Come wander with me and play in ${trimmed}.` : 'Come wander with me and play.'
-}
-
 export function tripShareClipboard(input: TripShareInput): string {
-  const url = tripShareLink(input)
-  return `${tripShareInvite(input.name)}\n${url}`
+  return tripShareLink(input)
 }
 
 export function tripShareMetaFromUrl(url: URL): { name: string; dateRange?: string; pageUrl: string } | null {

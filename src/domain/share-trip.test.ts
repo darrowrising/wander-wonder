@@ -29,7 +29,7 @@ const indexHtml = `<!doctype html>
 `
 
 describe('trip share payload', () => {
-  it('puts the trip name in the copied text and the URL', () => {
+  it('copies only the shareable trip link', () => {
     const link = tripShareLink({
       origin: 'https://wander-wonder.vercel.app',
       tripId: 'abc',
@@ -43,9 +43,7 @@ describe('trip share payload', () => {
       tripId: 'abc',
       name: 'Grand Teton 2026',
       dateRange: 'Sep 15 – Sep 20, 2026',
-    })).toBe(
-      'Come wander with me and play in Grand Teton 2026.\nhttps://wander-wonder.vercel.app/trips/abc?n=Grand+Teton+2026&d=Sep+15+%E2%80%93+Sep+20%2C+2026',
-    )
+    })).toBe(link)
   })
 
   it('builds a preview title from the trip name', () => {

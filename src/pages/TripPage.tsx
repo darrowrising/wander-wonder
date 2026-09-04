@@ -12,6 +12,7 @@ import { UsaPlateMap } from '@/components/UsaPlateMap'
 import { ensureTripMember, joinTrip, listenEvents, listenMembers, listenTrip, togglePlate, toggleWildlife } from '@/data/trips'
 import { listenGameStats } from '@/data/stats'
 import { extraCreditPoints, extraCreditRarity, plateFoundPercent, plateRarity, pointsForRarity, summarizeExtraCredit, type ExtraCreditSummary, type ExtraRarity } from '@/domain/extra-credit'
+import { leadingFindCount, tallyFindsByPlayer } from '@/domain/find-tally'
 import { itemFoundStat, type FoundStat, type GameStats } from '@/domain/game-stats'
 import { countFoundByCountry, plateKey, projectFoundPlates, type Country, type FoundPlate } from '@/domain/plates'
 import { isPlateEvent, isWildlifeEvent, type TripEvent } from '@/domain/trip-event'
@@ -169,6 +170,88 @@ function PlayingPlayers({ players }: { players: { uid: string; displayName: stri
                 {player.displayName}
               </div>
             ))}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+function FindTally({
+  players,
+  finds,
+  unit,
+}: {
+  players: { uid: string; displayName: string }[]
+  finds: Map<string, { playerId: string; playerName: string }>
+  unit: 'plate' | 'sighting'
+}) {
+  const [open, setOpen] = useState(false)
+  const reduceMotion = useReducedMotion()
+  const rows = useMemo(() => tallyFindsByPlayer(finds.values(), players), [finds, players])
+  if (players.length < 2) return null
+  const lead = leadingFindCount(rows)
+  const leaderNames = rows.filter((row) => lead > 0 && row.count === lead).map((row) => row.playerName)
+  const summary =
+    leaderNames.length === 0
+      ? 'No finds yet'
+      : leaderNames.length === 1
+        ? `${leaderNames[0]} leading`
+        : `${leaderNames.join(' & ')} tied`
+
+  return (
+    <div className="mt-3 rounded-xl border border-sand-200 bg-white shadow-sm">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2.5 text-left"
+      >
+        <span className="text-xs font-medium uppercase tracking-wide text-sand-400">Who's ahead</span>
+        <span className="flex min-w-0 items-center gap-2">
+          {!open ? <span className="truncate text-sm text-sand-500">{summary}</span> : null}
+          <ChevronDown
+            className={cn('size-4 shrink-0 text-sand-400 transition-transform', open ? 'rotate-180' : null)}
+          />
+        </span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            initial={reduceMotion ? false : { height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={reduceMotion ? undefined : { height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <ol className="flex flex-col gap-1.5 border-t border-sand-100 px-3 pb-3 pt-2">
+              {rows.map((row, index) => {
+                const leading = lead > 0 && row.count === lead
+                const label = row.count === 1 ? unit : `${unit}s`
+                return (
+                  <li key={row.playerId} className="flex items-center justify-between gap-3 text-sm">
+                    <span
+                      className={cn(
+                        'flex min-w-0 items-center gap-1.5 truncate',
+                        leading ? 'font-semibold text-forest' : 'text-forest',
+                      )}
+                    >
+                      <span className="w-4 shrink-0 text-xs tabular-nums text-sand-400">{index + 1}</span>
+                      {leading ? <Star className="size-3.5 shrink-0 fill-gold text-gold" /> : null}
+                      <span className="truncate">{row.playerName}</span>
+                    </span>
+                    <span
+                      className={cn(
+                        'shrink-0 tabular-nums',
+                        leading ? 'font-semibold text-gold' : 'text-sand-500',
+                      )}
+                    >
+                      {row.count} {label}
+                    </span>
+                  </li>
+                )
+              })}
+            </ol>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -1079,7 +1162,7 @@ export function TripPage() {
         ) : null}
         {live ? (
           <>
-            <p className="text-sand-600">Join this trip to play with the family.</p>
+            <p className="text-sand-600">Join this trip to play.</p>
             {joinError ? <p className="text-sm text-red-700">{joinError}</p> : null}
             <Button className="mt-1 w-fit" onClick={() => void onJoin()} disabled={joining}>
               {joining ? 'Joining…' : 'Join this trip'}
@@ -1103,6 +1186,11 @@ export function TripPage() {
           {live ? <ShareTripButton trip={trip} /> : null}
         </div>
         <PlayingPlayers players={players} />
+        <FindTally
+          players={players}
+          finds={game === 'wildlife' ? wildlifeFound : found}
+          unit={game === 'wildlife' ? 'sighting' : 'plate'}
+        />
       </div>
 
       {game === 'plates' ? (
